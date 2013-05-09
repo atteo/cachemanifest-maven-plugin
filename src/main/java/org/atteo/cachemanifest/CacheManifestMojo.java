@@ -5,9 +5,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.plugin.AbstractMojo;
@@ -28,7 +29,7 @@ public class CacheManifestMojo extends AbstractMojo {
 	private String manifestPath;
 
 	/**
-	 * @parameter default-value="1"
+	 * @parameter
 	 */
 	private String manifestVersion;
 
@@ -51,18 +52,23 @@ public class CacheManifestMojo extends AbstractMojo {
 	public void execute() throws MojoExecutionException {
 		final FileSetManager fileSetManager = new FileSetManager(getLog());
 
-		final Set<String> resourceEntries = new HashSet<>();
+		final Set<String> resourceEntries = new TreeSet<>();
 
 		for (FileSet resource : resources) {
 			resourceEntries.addAll(Arrays.asList(fileSetManager.getIncludedFiles(resource)));
 		}
 
-		final Set<String> networkResourceEntries = new HashSet<>(networkResources);
+		final Set<String> networkResourceEntries = new TreeSet<>(networkResources);
 
 		try {
 			FileUtils.touch(new File(manifestPath));
 			try (PrintWriter manifest = new PrintWriter(manifestPath, "UTF-8")) {
 				manifest.println("CACHE MANIFEST\n");
+
+				if (this.manifestVersion == null || this.manifestVersion.isEmpty()) {
+					this.manifestVersion = String.valueOf(new Date().getTime());
+				}
+
 				manifest.println("# version: " + this.manifestVersion);
 
 				if (!resourceEntries.isEmpty()) {
