@@ -16,6 +16,10 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.model.fileset.FileSet;
 import org.apache.maven.shared.model.fileset.util.FileSetManager;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 /**
  * @phase generated-resources
@@ -37,7 +41,12 @@ public class CacheManifestMojo extends AbstractMojo {
 	/**
 	 * @parameter
 	 */
-	private List<FileSet> resources = new ArrayList<>();
+	private List<FileSet> fileResources = new ArrayList<>();
+
+	/**
+	 * @parameter
+	 */
+	private List<String> resourcesReferencedFrom = new ArrayList<>();
 
 	/**
 	 * @parameter
@@ -62,9 +71,43 @@ public class CacheManifestMojo extends AbstractMojo {
 
 		final Set<String> resourceEntries = new TreeSet<>();
 
-		for (FileSet resource : resources) {
+		for (FileSet resource : fileResources) {
 			resource.setDirectory(project.getBasedir().getAbsolutePath() + File.separator + resource.getDirectory());
 			resourceEntries.addAll(Arrays.asList(fileSetManager.getIncludedFiles(resource)));
+		}
+
+		for (String referencedFrom : resourcesReferencedFrom) {
+			File input = new File(project.getBasedir(), referencedFrom);
+			try {
+				Document doc = Jsoup.parse(input, "UTF-8");
+				Elements scripts = doc.getElementsByTag("script");
+				Elements links = doc.getElementsByTag("link");
+				Elements images = doc.getElementsByTag("img");
+
+				for (Element script : scripts) {
+					String src = script.attr("src");
+					if (src != null) {
+						resourceEntries.add(src);
+					}
+				}
+
+				for (Element link : links) {
+					String rel = link.attr("rel");
+					String href = link.attr("href");
+					if (href != null && rel.equals("stylesheet")) {
+						resourceEntries.add(href);
+					}
+				}
+
+				for (Element image : images) {
+					String src = image.attr("src");
+					if (src != null) {
+						resourceEntries.add(src);
+					}
+				}
+			} catch (IOException ex) {
+				throw new RuntimeException(ex);
+			}
 		}
 
 		final Set<String> networkResourceEntries = new TreeSet<>(networkResources);
