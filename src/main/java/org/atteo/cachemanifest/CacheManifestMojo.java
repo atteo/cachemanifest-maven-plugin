@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.model.fileset.FileSet;
 import org.apache.maven.shared.model.fileset.util.FileSetManager;
 
@@ -48,6 +49,13 @@ public class CacheManifestMojo extends AbstractMojo {
 	 */
 	private String fallback;
 
+	/**
+	 * @parameter default-value="${project}"
+	 * @required
+	 * @readonly
+	 */
+	MavenProject project;
+
 	@Override
 	public void execute() throws MojoExecutionException {
 		final FileSetManager fileSetManager = new FileSetManager(getLog());
@@ -66,7 +74,11 @@ public class CacheManifestMojo extends AbstractMojo {
 				manifest.println("CACHE MANIFEST\n");
 
 				if (this.manifestVersion == null || this.manifestVersion.isEmpty()) {
-					this.manifestVersion = String.valueOf(new Date().getTime());
+					this.manifestVersion = project.getVersion();
+
+					if (manifestVersion.endsWith("SNAPSHOT")) {
+						this.manifestVersion += " " + String.valueOf(new Date().getTime());
+					}
 				}
 
 				manifest.println("# version: " + this.manifestVersion);
