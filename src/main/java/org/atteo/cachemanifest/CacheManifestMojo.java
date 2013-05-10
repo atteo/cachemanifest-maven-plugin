@@ -63,14 +63,21 @@ public class CacheManifestMojo extends AbstractMojo {
 		final Set<String> resourceEntries = new TreeSet<>();
 
 		for (FileSet resource : resources) {
+			resource.setDirectory(project.getBasedir().getAbsolutePath() + File.separator + resource.getDirectory());
 			resourceEntries.addAll(Arrays.asList(fileSetManager.getIncludedFiles(resource)));
 		}
 
 		final Set<String> networkResourceEntries = new TreeSet<>(networkResources);
 
 		try {
-			FileUtils.touch(new File(manifestPath));
-			try (PrintWriter manifest = new PrintWriter(manifestPath, "UTF-8")) {
+			File file = new File(project.getBasedir(), manifestPath);
+
+			if (file.exists()) {
+				file.delete();
+			}
+
+			FileUtils.touch(file);
+			try (PrintWriter manifest = new PrintWriter(file, "UTF-8")) {
 				manifest.println("CACHE MANIFEST\n");
 
 				if (this.manifestVersion == null || this.manifestVersion.isEmpty()) {
