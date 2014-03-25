@@ -10,9 +10,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.model.fileset.FileSet;
 import org.apache.maven.shared.model.fileset.util.FileSetManager;
@@ -21,48 +23,31 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-/**
- * @phase generated-resources
- * @goal generate-manifest
- * @threadSafe true
- */
+@Mojo(name = "generate-manifest", threadSafe = true, defaultPhase = LifecyclePhase.GENERATE_RESOURCES)
 public class CacheManifestMojo extends AbstractMojo {
 
-	/**
-	 * @parameter default-value="/src/main/webapp/application.cachemanifest"
-	 */
+	@Parameter(defaultValue = "/target/classes/META-INF/resources/application.cachemanifest")
 	private String manifestPath;
 
-	/**
-	 * @parameter
-	 */
+	@Parameter
 	private String manifestVersion;
 
-	/**
-	 * @parameter
-	 */
+	@Parameter
 	private List<FileSet> fileResources = new ArrayList<>();
 
-	/**
-	 * @parameter
-	 */
+	@Parameter
+	private List<String> resources = new ArrayList<>();
+
+	@Parameter
 	private List<String> resourcesReferencedFrom = new ArrayList<>();
 
-	/**
-	 * @parameter
-	 */
+	@Parameter
 	private List<String> networkResources = new ArrayList<>();
 
-	/**
-	 * @parameter
-	 */
+	@Parameter
 	private String fallback;
 
-	/**
-	 * @parameter default-value="${project}"
-	 * @required
-	 * @readonly
-	 */
+	@Parameter(defaultValue = "${project}", readonly = true, required = true)
 	MavenProject project;
 
 	@Override
@@ -72,9 +57,10 @@ public class CacheManifestMojo extends AbstractMojo {
 		final Set<String> resourceEntries = new TreeSet<>();
 
 		for (FileSet resource : fileResources) {
-			resource.setDirectory(project.getBasedir().getAbsolutePath() + File.separator + resource.getDirectory());
 			resourceEntries.addAll(Arrays.asList(fileSetManager.getIncludedFiles(resource)));
 		}
+
+		resourceEntries.addAll(resources);
 
 		for (String referencedFrom : resourcesReferencedFrom) {
 			File input = new File(project.getBasedir(), referencedFrom);
@@ -82,7 +68,6 @@ public class CacheManifestMojo extends AbstractMojo {
 				Document doc = Jsoup.parse(input, "UTF-8");
 				Elements scripts = doc.getElementsByTag("script");
 				Elements links = doc.getElementsByTag("link");
-				Elements images = doc.getElementsByTag("img");
 
 				for (Element script : scripts) {
 					String src = script.attr("src");
@@ -98,13 +83,6 @@ public class CacheManifestMojo extends AbstractMojo {
 						resourceEntries.add(href);
 					}
 				}
-
-				for (Element image : images) {
-					String src = image.attr("src");
-					if (src != null) {
-						resourceEntries.add(src);
-					}
-				}
 			} catch (IOException ex) {
 				throw new RuntimeException(ex);
 			}
@@ -113,25 +91,33 @@ public class CacheManifestMojo extends AbstractMojo {
 		final Set<String> networkResourceEntries = new TreeSet<>(networkResources);
 
 		try {
-			File file = new File(project.getBasedir(), manifestPath);
+			File file = new File(manifestPath);
+
+			if (!file.isAbsolute()) {
+				file = new File(project.getBasedir(), manifestPath);
+			}
 
 			if (file.exists()) {
 				file.delete();
 			}
 
-			FileUtils.touch(file);
-			try (PrintWriter manifest = new PrintWriter(file, "UTF-8")) {
-				manifest.println("CACHE MANIFEST\n");
+			file.getParentFile().mkdirs();
+			file.createNewFile();
 
-				if (this.manifestVersion == null || this.manifestVersion.isEmpty()) {
-					this.manifestVersion = project.getVersion();
+			try (PrintWriter manifest = new PrintWriter(file, "UTF-8")) {
+				if (manifestVersion == null || manifestVersion.isEmpty()) {
+					manifestVersion = project.getVersion();
 
 					if (manifestVersion.endsWith("SNAPSHOT")) {
-						this.manifestVersion += " " + String.valueOf(new Date().getTime());
+						manifestVersion += "-" + String.valueOf(new Date().getTime());
 					}
 				}
 
-				manifest.println("# version: " + this.manifestVersion);
+				getLog().info("Generating version: " + manifestVersion);
+				getLog().info(resourceEntries.size() + " resources");
+
+				manifest.println("CACHE MANIFEST\n");
+				manifest.println("# version: " + manifestVersion);
 
 				if (!resourceEntries.isEmpty()) {
 					manifest.println();
