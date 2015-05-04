@@ -13,6 +13,10 @@ Arguments
 Changes
 =======
 
+Version 0.3
+
+- always use '/' in URLs
+
 Version 0.2
 
 - initial release
@@ -27,7 +31,7 @@ Example
         <plugin>
             <groupId>org.atteo</groupId>
             <artifactId>cachemanifest-maven-plugin</artifactId>
-            <version>0.2</version>
+            <version>0.3</version>
             <executions>
                 <execution>
                     <phase>process-resources</phase>
