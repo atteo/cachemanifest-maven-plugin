@@ -57,7 +57,10 @@ public class CacheManifestMojo extends AbstractMojo {
 		final Set<String> resourceEntries = new TreeSet<>();
 
 		for (FileSet resource : fileResources) {
-			resourceEntries.addAll(Arrays.asList(fileSetManager.getIncludedFiles(resource)));
+			for(String file : fileSetManager.getIncludedFiles(resource)) {
+				// always use slash as separator char
+				resourceEntries.add(file.replace(File.separatorChar, '/'));
+			}
 		}
 
 		resourceEntries.addAll(resources);
